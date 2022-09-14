@@ -10,8 +10,8 @@
 #include <X11/Xlib.h>
 #include <X11/Xatom.h>
 #include <X11/Xutil.h>
+#include <X11/cursorfont.h>
 #include <X11/xpm.h>
-#include <X11/extensions/Xrender.h>
 
 #ifdef USE_STB
 #define STB_IMAGE_RESIZE_IMPLEMENTATION
@@ -22,7 +22,6 @@
 #include "album.data"
 
 #define FONT            "-misc-fixed-*-*-*-*-*-*-*-*-*-*-*-*"
-#define UNKNOWN_TITLE   "(?)"
 #define SHADE           0xFF
 #define ALPHA           0x37    /* value empirically chosen */
 #define JPEGMAGICSIZE   4
@@ -38,13 +37,15 @@
 
 enum { POLL_X11, POLL_MPD, POLL_LAST };
 enum { BG_NORMAL, BG_HOVERED, BG_LAST };
+enum { BTN_PREV, BTN_NEXT, BTN_LAST };
 
 static struct mpd_connection *mpd;
 static struct pollfd pfds[POLL_LAST];
 static size_t titlelen = 0;
+static Cursor cursor;
 static XFontSet fontset;
 static Display *dpy;
-static Window root, win;
+static Window root, win, btnwin[BTN_LAST];
 static Pixmap savepix[BG_LAST];
 static Pixmap nopix[BG_LAST];
 static Pixmap pix[BG_LAST] = {None, None};
@@ -53,7 +54,7 @@ static GC gc, btngc;
 static int btnw, btnh, btnx, btny;
 static int fonth, textw, scroll = 0;
 static int screen;
-static int hovered = 0;
+static int hovered = BG_NORMAL;
 static char title[TITLEMAXLEN];
 static enum mpd_state state;
 
@@ -363,7 +364,7 @@ nocover:
 }
 
 static void
-settitle(struct mpd_song *song)
+settitle(struct mpd_song *song, const char *uri)
 {
 	XRectangle box, dummy;
 	const char *s;
@@ -377,7 +378,7 @@ settitle(struct mpd_song *song)
 			mpd_song_get_tag(song, MPD_TAG_TITLE, 0)
 		);
 	} else {
-		snprintf(title, TITLEMAXLEN, "%s", UNKNOWN_TITLE);
+		snprintf(title, TITLEMAXLEN, "%s", uri);
 	}
 	titlelen = strlen(title);
 	XmbTextExtents(fontset, title, titlelen, &dummy, &box);
@@ -395,7 +396,7 @@ updatesong(void)
 		mpderr();
 	uri = mpd_song_get_uri(song);
 	setalbum(uri);
-	settitle(song);
+	settitle(song, uri);
 	mpd_song_free(song);
 }
 
@@ -447,9 +448,9 @@ static void
 pressbutton(int x, int y)
 {
 	mpd_recv_idle(mpd, false);
-	if (x < WINSIZE / 2 && y >= WINSIZE - btny - btnh)
+	if (x < WINSIZE / 2 && y >= WINSIZE - 2 * btny - btnh)
 		mpd_run_previous(mpd);
-	else if (x >= WINSIZE / 2 && y >= WINSIZE - btny - btnh)
+	else if (x >= WINSIZE / 2 && y >= WINSIZE - 2 * btny - btnh)
 		mpd_run_next(mpd);
 	else
 		mpd_run_pause(mpd, state == MPD_STATE_PLAY);
@@ -597,6 +598,7 @@ initx(int argc, char *argv[])
 		title++;
 	else
 		title = argv[0];
+	cursor = XCreateFontCursor(dpy, XC_hand2);
 	win = XCreateWindow(
 		dpy, root,
 		0, 0, WINSIZE, WINSIZE, 0,
@@ -668,6 +670,7 @@ static void
 initbuttons(void)
 {
 	XpmAttributes xa;
+	int h;
 
 	memset(&xa, 0, sizeof(xa));
 	if (XpmCreatePixmapFromData(dpy, root, buttons_xpm, &btnpix, &btnmask, &xa) != XpmSuccess)
@@ -686,6 +689,31 @@ initbuttons(void)
 	btnh = xa.height;
 	btnx = xa.x_hotspot;
 	btny = xa.y_hotspot;
+	h = 2 * btny + btnh;
+	btnwin[BTN_PREV] = XCreateWindow(
+		dpy, win,
+		0, WINSIZE - h,
+		WINSIZE / 2, h, 0,
+		CopyFromParent, InputOnly, CopyFromParent,
+		CWCursor | CWEventMask,
+		&(XSetWindowAttributes){
+			.cursor = cursor,
+			.event_mask = EnterWindowMask
+		}
+	);
+	btnwin[BTN_NEXT] = XCreateWindow(
+		dpy, win,
+		WINSIZE / 2, WINSIZE - h,
+		WINSIZE / 2, h, 0,
+		CopyFromParent, InputOnly, CopyFromParent,
+		CWCursor | CWEventMask,
+		&(XSetWindowAttributes){
+			.cursor = cursor,
+			.event_mask = EnterWindowMask
+		}
+	);
+	XMapWindow(dpy, btnwin[BTN_PREV]);
+	XMapWindow(dpy, btnwin[BTN_NEXT]);
 }
 
 static void
