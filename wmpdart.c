@@ -151,7 +151,7 @@ downsample(unsigned char *src, int sw, int sh, int c, int *dw, int *dh)
 	if (src == NULL)
 		return NULL;
 	/* scale to fit */
-	if (sw > sh) {
+	if (sw < sh) {
 		*dw = IMGSIZE;
 		*dh = (sh * IMGSIZE) / sw;
 	} else {
@@ -168,12 +168,12 @@ downsample(unsigned char *src, int sw, int sh, int c, int *dw, int *dh)
 	/* scale image down with nearest-neighbor interpolation (thanks anon) */
 	xr = sw / *dw;
 	yr = sh / *dh;
-	for (i = 0; i < *dw; i++) {
-		x = i * xr;
-		for (j = 0; j < *dh; j++) {
-			y = j * yr;
+	for (i = 0; i < *dh; i++) {
+		y = i * yr;
+		for (j = 0; j < *dw; j++) {
+			x = j * xr;
 			for (k = 0; k < c; k++) {
-				dst[i * (*dw) * c + j * c + k] = src[x * sw * c + y * c + k];
+				dst[i * (*dw) * c + j * c + k] = src[y * sw * c + x * c + k];
 			}
 		}
 	}
@@ -188,9 +188,9 @@ applyshade(unsigned char *buf, int w, int h, int c, int f)
 	int i, j, k, from, to;
 
 	from = f ? fonth : 0;
-	to = f ? w : fonth;
+	to = f ? h : fonth;
 	for (i = from; i < to; i++) {
-		for (j = 0; j < h; j++) {
+		for (j = 0; j < w; j++) {
 			k = i * w * c + j * c;
 			buf[k + 0] = (SHADE * 255 / USHRT_MAX) + ((buf[k + 0] - (SHADE * 255 / USHRT_MAX)) * ALPHA) / 255;
 			buf[k + 1] = (SHADE * 255 / USHRT_MAX) + ((buf[k + 1] - (SHADE * 255 / USHRT_MAX)) * ALPHA) / 255;
