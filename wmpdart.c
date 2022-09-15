@@ -29,11 +29,12 @@
 #define BORDER          1
 #define IMGSIZE         (WINSIZE - 2 * BORDER)
 #define DEFCLASS        "WMPDArt"
-#define SCROLLINC       4
 #define BUFSIZE         8192
-#define UPDATE_TIME     250
+#define SCROLL_STEP     4       /* how much pixels to scroll title */
+#define SCROLL_TIME     250     /* how many milisec to wait for scrolling step */
 #define TITLEMAXLEN     1024
-#define NCHANNELS       4
+#define NCHANNELS       4       /* BGRA */
+#define VOLUME          5       /* how much to increase or decrease volume */
 
 enum { POLL_X11, POLL_MPD, POLL_LAST };
 enum { BG_NORMAL, BG_HOVERED, BG_LAST };
@@ -513,10 +514,18 @@ drawtitle()
 	if (scroll >= WINSIZE + textw)
 		scroll = 0;
 	else
-		scroll += SCROLLINC;
+		scroll += SCROLL_STEP;
 
 	commitpixmap();
 	XFlush(dpy);
+}
+
+static void
+changevolume(int vol)
+{
+	mpd_recv_idle(mpd, false);
+	mpd_send_change_volume(mpd, vol);
+	mpd_send_noidle(mpd);
 }
 
 static void
@@ -531,7 +540,12 @@ xevent(void)
 				commitpixmap();
 			break;
 		case ButtonPress:
-			pressbutton(ev.xbutton.x, ev.xbutton.y);
+			if (ev.xbutton.button == Button1)
+				pressbutton(ev.xbutton.x, ev.xbutton.y);
+			else if (ev.xbutton.button == Button4)
+				changevolume(+VOLUME);
+			else if (ev.xbutton.button == Button5)
+				changevolume(-VOLUME);
 			break;
 		case EnterNotify:
 			showbuttons();
@@ -553,7 +567,7 @@ run(void)
 
 	idleflag = 1;
 	hovered = BG_NORMAL;
-	while ((ret = poll(pfds, POLL_LAST, (state == MPD_STATE_PLAY ? UPDATE_TIME : -1))) != -1) {
+	while ((ret = poll(pfds, POLL_LAST, (state == MPD_STATE_PLAY ? SCROLL_TIME : -1))) != -1) {
 		handleidle = 0;
 		if (!(pfds[POLL_MPD].revents & POLLIN)
 		   && (pfds[POLL_X11].revents & POLLIN)) {

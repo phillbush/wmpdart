@@ -8,11 +8,15 @@ wmpdart is a simple [mpd](https://www.musicpd.org/) client that lives on
 the dock of some window managers such as [WindowMaker](https://www.windowmaker.org/)
 and [Shod](https://github.com/phillbush/shod) and shows the album art of
 the currently playing song.  It also shows the title of the song
-scrolling from right to left.  When hovered, wmpdart shows two buttons:
+scrolling from right to left.  When hovered, wmpdart shows two buttons.
+
+Control:
 
 * Clicking on the left button plays the previous song.
 * Clicking on the right button plays the next song.
 * Clicking elsewhere pause or continue the current song.
+* Scrolling up increases the volume.
+* Scrolling down decreases the volume.
 
 To build just run `make`.
 You'll need libjpeg, libmpdclient, and the xlib and libXpm X11 libraries.
