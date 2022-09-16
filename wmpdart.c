@@ -424,7 +424,8 @@ mpdevent(void)
 	q = mpd_status_get_queue_version(status);
 	n = mpd_status_get_song_id(status);
 	state = s;
-	if (!once || n != songid || q != queue) {
+	if ((!once || n != songid || q != queue) &&
+	    (s == MPD_STATE_PLAY || s == MPD_STATE_UNKNOWN)) {
 		updatesong();
 		draw = 1;
 	}
