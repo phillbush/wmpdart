@@ -37,7 +37,7 @@
 #define VOLUME          5       /* how much to increase or decrease volume */
 
 enum { POLL_X11, POLL_MPD, POLL_LAST };
-enum { BG_NORMAL, BG_HOVERED, BG_LAST };
+enum { BG_NORMAL, BG_SHADED, BG_LAST };
 enum { BTN_PREV, BTN_NEXT, BTN_LAST };
 
 static struct mpd_connection *mpd;
@@ -55,7 +55,7 @@ static GC gc, btngc;
 static int btnw, btnh, btnx, btny;
 static int fonth, textw, scroll = 0;
 static int screen;
-static int hovered = BG_NORMAL;
+static int shade = BG_SHADED;
 static char title[TITLEMAXLEN];
 static enum mpd_state state;
 
@@ -114,7 +114,8 @@ isjpg(const unsigned char *data, size_t size)
 static void
 commitpixmap(void)
 {
-	XCopyArea(dpy, pix[hovered], win, gc, 0, 0, WINSIZE, WINSIZE, 0, 0);
+	XCopyArea(dpy, pix[shade], win, gc, 0, 0, WINSIZE, WINSIZE, 0, 0);
+	XFlush(dpy);
 }
 
 static unsigned char *
@@ -308,10 +309,9 @@ coverfromjpg(unsigned char *buf, size_t size)
 	applyshade(buf, dw, dh, c, 0);
 	copypixmap(image, savepix[BG_NORMAL], buf, dw, dh);
 	applyshade(buf, dw, dh, c, 1);
-	copypixmap(image, savepix[BG_HOVERED], buf, dw, dh);
+	copypixmap(image, savepix[BG_SHADED], buf, dw, dh);
 	XDestroyImage(image);
-	drawbuttons(savepix[BG_HOVERED]);
-	commitpixmap();
+	drawbuttons(savepix[BG_SHADED]);
 	XFlush(dpy);
 }
 
@@ -319,14 +319,14 @@ static void
 coverunknown(void)
 {
 	XCopyArea(dpy, nopix[BG_NORMAL], savepix[BG_NORMAL], gc, 0, 0, WINSIZE, WINSIZE, 0, 0);
-	XCopyArea(dpy, nopix[BG_HOVERED], savepix[BG_HOVERED], gc, 0, 0, WINSIZE, WINSIZE, 0, 0);
+	XCopyArea(dpy, nopix[BG_SHADED], savepix[BG_SHADED], gc, 0, 0, WINSIZE, WINSIZE, 0, 0);
 }
 
 static void
 bgtopix(void)
 {
 	XCopyArea(dpy, savepix[BG_NORMAL], pix[BG_NORMAL], gc, 0, 0, WINSIZE, WINSIZE, 0, 0);
-	XCopyArea(dpy, savepix[BG_HOVERED], pix[BG_HOVERED], gc, 0, 0, WINSIZE, WINSIZE, 0, 0);
+	XCopyArea(dpy, savepix[BG_SHADED], pix[BG_SHADED], gc, 0, 0, WINSIZE, WINSIZE, 0, 0);
 }
 
 static void
@@ -411,20 +411,30 @@ mpdevent(void)
 	struct mpd_status *status;
 	enum mpd_state s;
 	unsigned int q;
-	int n;
+	int draw, n;
 
 	if ((status = mpd_run_status(mpd)) == NULL)
 		mpderr();
+	draw = 0;
 	s = mpd_status_get_state(status);
+	if (!once || s != state) {
+		shade = (s == MPD_STATE_PLAY) ? BG_NORMAL : BG_SHADED;
+		draw = 1;
+	}
 	q = mpd_status_get_queue_version(status);
 	n = mpd_status_get_song_id(status);
 	state = s;
-	if ((!once || n != songid || q != queue) && (state & MPD_STATE_PLAY))
+	if (!once || n != songid || q != queue) {
 		updatesong();
+		draw = 1;
+	}
 	queue = q;
 	songid = n;
 	mpd_status_free(status);
 	once = 1;
+	if (draw) {
+		commitpixmap();
+	}
 }
 
 static void
@@ -432,7 +442,7 @@ showbuttons(void)
 {
 	if (state != MPD_STATE_PLAY)
 		return;
-	hovered = BG_HOVERED;
+	shade = BG_SHADED;
 	commitpixmap();
 }
 
@@ -441,7 +451,7 @@ hidebuttons(void)
 {
 	if (state != MPD_STATE_PLAY)
 		return;
-	hovered = BG_NORMAL;
+	shade = BG_NORMAL;
 	commitpixmap();
 }
 
@@ -566,7 +576,6 @@ run(void)
 	int ret;
 
 	idleflag = 1;
-	hovered = BG_NORMAL;
 	while ((ret = poll(pfds, POLL_LAST, (state == MPD_STATE_PLAY ? SCROLL_TIME : -1))) != -1) {
 		handleidle = 0;
 		if (!(pfds[POLL_MPD].revents & POLLIN)
@@ -748,10 +757,12 @@ initalbum(void)
 	applyshade(album_data, IMGSIZE, IMGSIZE, NCHANNELS, 0);
 	copypixmap(image, nopix[BG_NORMAL], album_data, IMGSIZE, IMGSIZE);
 	applyshade(album_data, IMGSIZE, IMGSIZE, NCHANNELS, 1);
-	copypixmap(image, nopix[BG_HOVERED], album_data, IMGSIZE, IMGSIZE);
-	drawbuttons(nopix[BG_HOVERED]);
+	copypixmap(image, nopix[BG_SHADED], album_data, IMGSIZE, IMGSIZE);
+	drawbuttons(nopix[BG_SHADED]);
 	image->data = NULL;
 	XDestroyImage(image);
+	coverunknown();
+	commitpixmap();
 }
 
 static void
