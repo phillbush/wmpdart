@@ -391,8 +391,8 @@ updatesong(void)
 {
 	struct mpd_song *song;
 	const char *uri;
- 
- 	scroll = 0;
+
+	scroll = 0;
 	if ((song = mpd_run_current_song(mpd)) == NULL)
 		mpderr();
 	uri = mpd_song_get_uri(song);
@@ -763,6 +763,7 @@ initalbum(void)
 	image->data = NULL;
 	XDestroyImage(image);
 	coverunknown();
+	bgtopix();
 	commitpixmap();
 }
 
