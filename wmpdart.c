@@ -534,6 +534,8 @@ drawtitle()
 static void
 changevolume(int vol)
 {
+	if (state != MPD_STATE_PLAY)
+		return;
 	mpd_recv_idle(mpd, false);
 	mpd_send_change_volume(mpd, vol);
 	mpd_send_noidle(mpd);
