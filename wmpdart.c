@@ -1,6 +1,7 @@
 #include <err.h>
 #include <poll.h>
 #include <limits.h>
+#include <locale.h>
 #include <stdio.h>
 #include <stdlib.h>
 #include <string.h>
@@ -616,6 +617,8 @@ initx(int argc, char *argv[])
 	int i;
 	char *title;
 
+	if (!setlocale(LC_CTYPE, "") || !XSupportsLocale())
+		warnx("warning: no locale support");
 	if ((dpy = XOpenDisplay(NULL)) == NULL)
 		errx(1, "could not open display");
 	screen = DefaultScreen(dpy);
