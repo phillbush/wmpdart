@@ -22,7 +22,7 @@
 #include "buttons.xpm"
 #include "album.data"
 
-#define FONT            "-misc-fixed-*-*-*-*-*-*-*-*-*-*-*-*"
+#define FONT            "fixed"
 #define SHADE           0xFF
 #define ALPHA           0x37    /* value empirically chosen */
 #define JPEGMAGICSIZE   4
@@ -207,7 +207,7 @@ copypixmap(XImage *image, Pixmap pix, unsigned char *src, int w, int h)
 {
 	XGCValues val;
 
-	image->data = src;
+	image->data = (char *)src;
 
 	/* draw cover on pixmap */
 	XPutImage(
