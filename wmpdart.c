@@ -296,6 +296,8 @@ coverfromjpg(unsigned char *buf, size_t size)
 	int c;
 
 	buf = uncompress(buf, size, &sw, &sh, &c);
+	dw = sw;
+	dh = sh;
 	buf = downsample(buf, sw, sh, c, &dw, &dh);
 	image = XCreateImage(
 		dpy,
